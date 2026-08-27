@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error("Supabase environment variables are not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+  return createClient(url, key);
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -13,6 +17,8 @@ export async function POST(request: NextRequest) {
   if (!guest_email || !first_name || !last_name || !room_id || !rate_id || !check_in || !check_out) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+
+  const supabase = getSupabase();
 
   // 1. Check availability
   const { data: conflicts } = await supabase
@@ -94,6 +100,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const guestId = searchParams.get("guest_id");
   const code = searchParams.get("confirmation_code");
+
+  const supabase = getSupabase();
 
   let data: any;
   let error: any;

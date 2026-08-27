@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error("Supabase environment variables are not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+  return createClient(url, key);
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -15,6 +19,8 @@ export async function GET(request: NextRequest) {
   if (!roomId || !checkIn || !checkOut) {
     return NextResponse.json({ error: "room_id, check_in, and check_out are required" }, { status: 400 });
   }
+
+  const supabase = getSupabase();
 
   // Check for overlapping bookings
   const { data: conflicts } = await supabase
@@ -36,6 +42,8 @@ export async function POST(request: NextRequest) {
   if (!room_id || !check_in || !check_out) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+
+  const supabase = getSupabase();
 
   // Get all rooms and check availability
   const { data: allRooms } = await supabase

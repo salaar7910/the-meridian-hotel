@@ -17,32 +17,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
     cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
+      getAll() { return request.cookies.getAll(); },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value)
-        );
-        supabaseResponse = NextResponse.next({
-          request,
-        });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        );
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        supabaseResponse = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
       },
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Account routes require authentication
   if (pathname.startsWith("/account") && !user) {
@@ -52,12 +40,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Admin routes require admin role
+  // Admin routes require authentication + admin role
   if (pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Check if user has admin role in guests table
+    const { data: guest } = await supabase
+      .from("guests")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!guest || guest.role !== "admin") {
+      // Not an admin — redirect to home with error
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.searchParams.set("error", "admin_only");
       return NextResponse.redirect(url);
     }
   }

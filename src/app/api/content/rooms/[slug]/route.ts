@@ -51,7 +51,7 @@ export async function GET(
   if (relatedRooms) {
     for (const rr of relatedRooms) {
       const { data: rrRates } = await supabase.from("rates").select("base_price").eq("room_id", rr.id).eq("is_active", true);
-      rr.starting_price = rrRates && rrRates.length > 0 ? Math.min(...rrRates.map((r: any) => r.base_price)) : 0;
+      (rr as any).starting_price = rrRates && rrRates.length > 0 ? Math.min(...rrRates.map((r: any) => r.base_price)) : 0;
     }
   }
 

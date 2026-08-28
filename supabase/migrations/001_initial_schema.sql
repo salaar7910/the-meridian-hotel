@@ -12,7 +12,7 @@ create table rooms (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   slug text unique not null,
-  category text not null check (category in ("Room", "Suite", "Signature Suite")),
+  category text not null check (category in ('Room', 'Suite', 'Signature Suite')),
   short_description text,
   description text,
   size_sqm integer,
@@ -75,7 +75,7 @@ create table rates (
   name text not null,
   description text,
   base_price numeric(10,2) not null,
-  currency text not null default "USD",
+  currency text not null default 'USD',
   cancellation_policy text,
   is_active boolean not null default true
 );
@@ -117,8 +117,8 @@ create table bookings (
   guests_count integer not null default 1,
   rooms_count integer not null default 1,
   total_price numeric(10,2) not null,
-  currency text not null default "USD",
-  status text not null default "pending" check (status in ("pending", "confirmed", "cancelled", "completed")),
+  currency text not null default 'USD',
+  status text not null default 'pending' check (status in ('pending', 'confirmed', 'cancelled', 'completed')),
   special_requests text,
   confirmation_code text unique,
   created_at timestamptz not null default now(),
@@ -162,27 +162,27 @@ create or replace function check_room_availability(
   p_check_in date,
   p_check_out date)
 returns boolean as
-$
+$$
 begin
   return not exists (
     select 1 from bookings
     where room_id = p_room_id
-    and status in ("confirmed", "pending")
+    and status in ('confirmed', 'pending')
     and check_in < p_check_out
     and check_out > p_check_in
   );
 end;
-$ language plpgsql;
+$$ language plpgsql;
 
 -- Generate confirmation code
 create or replace function generate_confirmation_code()
 returns trigger as
-$
+$$
 begin
-  new.confirmation_code := "TM" || upper(substr(md5(random()::text), 1, 8));
+  new.confirmation_code := 'TM' || upper(substr(md5(random()::text), 1, 8));
   return new;
 end;
-$ language plpgsql;
+$$ language plpgsql;
 
 create trigger set_confirmation_code
   before insert on bookings
@@ -191,12 +191,12 @@ create trigger set_confirmation_code
 -- Auto-update updated_at
 create or replace function update_updated_at()
 returns trigger as
-$
+$$
 begin
   new.updated_at = now();
   return new;
 end;
-$ language plpgsql;
+$$ language plpgsql;
 
 create trigger rooms_updated_at before update on rooms for each row execute function update_updated_at();
 create trigger bookings_updated_at before update on bookings for each row execute function update_updated_at();

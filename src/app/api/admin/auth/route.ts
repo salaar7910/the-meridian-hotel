@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
-  const { password, email } = await request.json();
+  let email: string, password: string;
+
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const body = await request.json();
+    email = body.email;
+    password = body.password;
+  } else {
+    const formData = await request.formData();
+    email = formData.get("email") as string;
+    password = formData.get("password") as string;
+  }
 
   const adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) {
@@ -10,11 +21,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (password !== adminPassword) {
-    return NextResponse.json({ error: "Invalid admin password" }, { status: 401 });
+    return NextResponse.redirect(new URL("/admin/login?error=wrong_password", request.url));
   }
 
   if (!email) {
-    return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    return NextResponse.redirect(new URL("/admin/login?error=no_email", request.url));
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -49,34 +60,30 @@ export async function POST(request: NextRequest) {
   }
 
   if (!guest) {
-    return NextResponse.json({ error: "Could not create admin account" }, { status: 500 });
+    return NextResponse.redirect(new URL("/admin/login?error=create_failed", request.url));
   }
 
   // 2. Create or update Supabase auth user
   const authPassword = "admin-" + Date.now();
-  let authCreated = false;
 
   try {
-    // Try to create user
     const { error: createError } = await supabase.auth.admin.createUser({
       email,
       password: authPassword,
       email_confirm: true,
     });
     if (createError) {
-      // User exists — update their password
       const { data: users } = await supabase.auth.admin.listUsers();
       const existingUser = users?.users?.find((u) => u.email === email);
       if (existingUser) {
         await supabase.auth.admin.updateUserById(existingUser.id, { password: authPassword });
       }
     }
-    authCreated = true;
   } catch {
-    // Continue even if auth setup fails
+    // Continue
   }
 
-  // 3. Sign in server-side and get session cookies
+  // 3. Sign in and get tokens
   const anonSupabase = createClient(supabaseUrl, anonKey);
   const { data: sessionData, error: sessionError } = await anonSupabase.auth.signInWithPassword({
     email,
@@ -84,34 +91,14 @@ export async function POST(request: NextRequest) {
   });
 
   if (sessionError || !sessionData.session) {
-    return NextResponse.json({ error: "Could not create login session: " + (sessionError?.message || "unknown") }, { status: 500 });
+    return NextResponse.redirect(new URL("/admin/login?error=session_failed", request.url));
   }
 
-  // 4. Set session cookies on the response
-  const response = NextResponse.json({
-    message: "Admin access granted",
-    guest,
-    redirect: "/admin",
-  });
+  // 4. Redirect to callback with tokens in URL
+  const accessToken = encodeURIComponent(sessionData.session.access_token);
+  const refreshToken = encodeURIComponent(sessionData.session.refresh_token);
 
-  // Set the auth cookies
-  const accessToken = sessionData.session.access_token;
-  const refreshToken = sessionData.session.refresh_token;
-
-  response.cookies.set("sb-access-token", accessToken, {
-    path: "/",
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-  response.cookies.set("sb-refresh-token", refreshToken, {
-    path: "/",
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  return response;
+  return NextResponse.redirect(
+    new URL(`/admin/callback?access_token=${accessToken}&refresh_token=${refreshToken}`, request.url)
+  );
 }

@@ -22,15 +22,40 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data: guest, error } = await supabase
+  // Try to find existing guest
+  let { data: guest } = await supabase
     .from("guests")
-    .update({ role: "admin" })
+    .select("id, email, first_name, last_name, role")
     .eq("email", email)
-    .select("id, email, first_name, last_name")
     .single();
 
-  if (error || !guest) {
-    return NextResponse.json({ error: "No account found with this email. Please register first." }, { status: 404 });
+  // If no guest exists, create one as admin
+  if (!guest) {
+    const emailName = email.split("@")[0];
+    const { data: newGuest, error } = await supabase
+      .from("guests")
+      .insert({
+        email,
+        first_name: emailName,
+        last_name: "",
+        role: "admin",
+      })
+      .select("id, email, first_name, last_name, role")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: "Could not create admin account" }, { status: 500 });
+    }
+    guest = newGuest;
+  } else {
+    // Promote existing guest to admin
+    const { data: updated } = await supabase
+      .from("guests")
+      .update({ role: "admin" })
+      .eq("id", guest.id)
+      .select("id, email, first_name, last_name, role")
+      .single();
+    if (updated) guest = updated;
   }
 
   return NextResponse.json({

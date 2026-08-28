@@ -49,7 +49,7 @@ export default function RoomDetailPage() {
         <div className="mb-10"><h3 className="text-xl mb-6">Specifications</h3><div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[{ l: "Size", v: room.size_sqm + " m2 (" + room.size_sqft + " sq ft)" }, { l: "Guests", v: "Up to " + room.max_guests }, { l: "Bed", v: room.bed_type }, { l: "View", v: room.view_type }, { l: "Floor", v: room.floor_info }, { l: "Category", v: room.category }].map((s) => <div key={s.l} className="p-4 border border-border-light rounded-lg"><div className="text-xs uppercase tracking-wider text-muted mb-1">{s.l}</div><div className="font-medium text-charcoal">{s.v}</div></div>)}</div></div>
       </div>
-      <div className="lg:col-span-1"><BookingWidget roomId={room.id} roomName={room.name} startingPrice={room.starting_price} maxGuests={room.max_guests} rates={room.rates || []} extras={extras} /></div>
+      <div className="lg:col-span-1 sticky top-28 self-start"><BookingWidget roomId={room.id} roomName={room.name} startingPrice={room.starting_price} maxGuests={room.max_guests} rates={room.rates || []} extras={extras} /></div>
     </div></div></section>
 
     {related.length > 0 && <section className="section bg-cream"><div className="container">

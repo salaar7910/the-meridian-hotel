@@ -68,7 +68,7 @@ export default function BookingWidget({ roomId, roomName, startingPrice, maxGues
   const ci = stepOrder.indexOf(step);
 
   return (
-    <div className="booking-widget sticky top-28">
+    <div className="booking-widget">
       <div className="mb-6"><p className="text-sm text-muted mb-1">Starting from</p><div className="flex items-baseline gap-2"><span className="text-3xl font-serif text-charcoal">{"$" + startingPrice.toLocaleString()}</span><span className="text-sm text-muted">/ night</span></div></div>
       <div className="flex items-center gap-2 mb-6">
         {stepOrder.map((s, i) => (<div key={s} className="flex items-center gap-2"><div className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium " + (step === s ? "bg-charcoal text-cream" : i < ci ? "bg-gold text-charcoal" : "bg-cream-dark text-muted")}>{i < ci ? <Check className="w-3.5 h-3.5" /> : i + 1}</div>{i < 3 && <div className="w-6 h-px bg-border-light" />}</div>))}

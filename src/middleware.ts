@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -52,10 +53,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const { data: guest } = await supabase
+    // Use service-role client to bypass RLS for admin role check
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: guest } = await serviceClient
       .from("guests")
       .select("role")
-      .eq("id", user.id)
+      .eq("email", user.email)
       .single();
 
     if (!guest || guest.role !== "admin") {

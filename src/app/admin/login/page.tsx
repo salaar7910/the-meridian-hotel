@@ -2,18 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Lock, Loader2, Shield } from "lucide-react";
-import { adminLogin } from "../actions";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,22 +18,42 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      const formData = new FormData();
-      formData.set("email", email);
-      formData.set("password", password);
+      // Use XMLHttpRequest instead of fetch — it handles Set-Cookie from redirects natively
+      const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/admin/auth");
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.withCredentials = true; // Include cookies
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 303 || xhr.status === 302 || xhr.status === 301) {
+              // Got redirect — cookies are set, navigate to admin
+              resolve({ success: true });
+            } else if (xhr.status === 200) {
+              resolve({ success: true });
+            } else {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                resolve({ success: false, error: data.error });
+              } catch {
+                resolve({ success: false, error: "Login failed" });
+              }
+            }
+          }
+        };
+        xhr.send(JSON.stringify({ email, password }));
+      });
 
-      const result = await adminLogin(formData);
-
-      if (result.error) {
-        setError(result.error);
+      if (result.success) {
+        // Force full page reload to /admin — this ensures cookies are sent
+        window.location.href = "/admin";
+      } else {
+        setError(result.error || "Login failed");
         setLoading(false);
-      } else if (result.redirect) {
-        // Server action set cookies — now redirect client-side
-        router.push(result.redirect);
       }
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
-      setLoading(false);
+      // If redirect happened, just navigate
+      window.location.href = "/admin";
     }
   };
 

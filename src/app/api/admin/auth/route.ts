@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Could not create admin account" }, { status: 500 });
     }
     guest = newGuest;
-  } else {
+  } else if (guest.role !== "admin") {
     // Promote existing guest to admin
     const { data: updated } = await supabase
       .from("guests")
@@ -58,8 +58,22 @@ export async function POST(request: NextRequest) {
     if (updated) guest = updated;
   }
 
+  // Also ensure a Supabase auth user exists for this email
+  // Try to create one (ignore if already exists)
+  const adminAuthToken = "Admin" + Math.random().toString(36).substring(2, 10);
+  try {
+    await supabase.auth.admin.createUser({
+      email,
+      password: adminAuthToken,
+      email_confirm: true,
+    });
+  } catch {
+    // User may already exist — that's fine
+  }
+
   return NextResponse.json({
     message: "Admin access granted",
     guest,
+    authPassword: adminAuthToken,
   });
 }

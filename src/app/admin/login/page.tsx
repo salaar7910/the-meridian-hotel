@@ -22,6 +22,7 @@ export default function AdminLoginPage() {
     setSuccess("");
 
     try {
+      // Step 1: Verify admin password and create/promote account
       const res = await fetch("/api/admin/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -29,8 +30,27 @@ export default function AdminLoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setSuccess("Admin access granted! Redirecting...");
-      setTimeout(() => router.push("/admin"), 1500);
+
+      setSuccess("Admin access granted! Signing you in...");
+
+      // Step 2: Sign in via Supabase Auth so middleware lets us through
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      if (data.authPassword) {
+        // Sign in with the token the API created
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: data.authPassword,
+        });
+        if (signInError) {
+          // Fallback: try signup + signin
+          await supabase.auth.signUp({ email, password: data.authPassword }).catch(() => {});
+          await supabase.auth.signInWithPassword({ email, password: data.authPassword }).catch(() => {});
+        }
+      }
+
+      setTimeout(() => router.push("/admin"), 1000);
     } catch (err: any) {
       setError(err.message || "Something went wrong");
     } finally {

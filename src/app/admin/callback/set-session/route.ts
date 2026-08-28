@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const accessToken = formData.get("access_token") as string;
-  const refreshToken = formData.get("refresh_token") as string;
+export async function GET(request: NextRequest) {
+  const accessToken = request.nextUrl.searchParams.get("access_token");
+  const refreshToken = request.nextUrl.searchParams.get("refresh_token");
 
   if (!accessToken || !refreshToken) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  // Extract project ref from URL
   const projectRef = supabaseUrl.replace("https://", "").replace(".supabase.co", "");
   const cookieName = `sb-${projectRef}-auth-token`;
 
-  // Build the session object that @supabase/ssr expects
   const sessionObj = JSON.stringify({
     access_token: accessToken,
     refresh_token: refreshToken,

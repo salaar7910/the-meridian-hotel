@@ -11,25 +11,12 @@ export default function CallbackHandler() {
     const refreshToken = searchParams.get("refresh_token");
 
     if (accessToken && refreshToken) {
-      // Create a hidden form and submit it to the server action
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/admin/callback/set-session";
-
-      const atInput = document.createElement("input");
-      atInput.type = "hidden";
-      atInput.name = "access_token";
-      atInput.value = accessToken;
-      form.appendChild(atInput);
-
-      const rtInput = document.createElement("input");
-      rtInput.type = "hidden";
-      rtInput.name = "refresh_token";
-      rtInput.value = refreshToken;
-      form.appendChild(rtInput);
-
-      document.body.appendChild(form);
-      form.submit();
+      // Navigate to set-session route which sets the cookie and redirects to /admin
+      const params = new URLSearchParams({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      window.location.href = "/admin/callback/set-session?" + params.toString();
     } else {
       window.location.href = "/admin/login";
     }

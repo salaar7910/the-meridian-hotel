@@ -21,11 +21,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (password !== adminPassword) {
-    return NextResponse.redirect(new URL("/admin/login?error=wrong_password", request.url));
+    return NextResponse.json({ error: "Invalid admin password" }, { status: 401 });
   }
 
   if (!email) {
-    return NextResponse.redirect(new URL("/admin/login?error=no_email", request.url));
+    return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!guest) {
-    return NextResponse.redirect(new URL("/admin/login?error=create_failed", request.url));
+    return NextResponse.json({ error: "Could not create admin account" }, { status: 500 });
   }
 
   // 2. Create or update Supabase auth user
@@ -91,14 +91,17 @@ export async function POST(request: NextRequest) {
   });
 
   if (sessionError || !sessionData.session) {
-    return NextResponse.redirect(new URL("/admin/login?error=session_failed", request.url));
+    return NextResponse.json({ error: "Could not create login session" }, { status: 500 });
   }
 
-  // 4. Redirect to callback with tokens in URL
-  const accessToken = encodeURIComponent(sessionData.session.access_token);
-  const refreshToken = encodeURIComponent(sessionData.session.refresh_token);
+  // 4. Return JSON — client will navigate via window.location
+  const accessToken = sessionData.session.access_token;
+  const refreshToken = sessionData.session.refresh_token;
 
-  return NextResponse.redirect(
-    new URL(`/admin/callback?access_token=${accessToken}&refresh_token=${refreshToken}`, request.url)
-  );
+  return NextResponse.json({
+    success: true,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    redirect: "/admin/callback",
+  });
 }

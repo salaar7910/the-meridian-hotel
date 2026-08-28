@@ -7,13 +7,35 @@ import { Footer } from "@/components/layout/Footer";
 import { Lock, Loader2, Shield } from "lucide-react";
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError("");
-    // Let the form submit naturally — the API redirects to /admin/callback
+
+    try {
+      const res = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Navigate to callback with tokens — use window.location for GET request
+      const params = new URLSearchParams({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      window.location.href = data.redirect + "?" + params.toString();
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+      setLoading(false);
+    }
   };
 
   return (<><Header /><main className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--color-cream)" }}>
@@ -24,17 +46,17 @@ export default function AdminLoginPage() {
         <p className="mt-3 text-sm" style={{ color: "var(--color-stone)" }}>Enter the admin password to gain access</p>
       </div>
 
-      <form action="/api/admin/auth" method="POST" onSubmit={handleSubmit} className="space-y-6" style={{ background: "white", padding: "2rem", borderRadius: "0.75rem", border: "1px solid var(--color-border)" }}>
+      <form onSubmit={handleSubmit} className="space-y-6" style={{ background: "white", padding: "2rem", borderRadius: "0.75rem", border: "1px solid var(--color-border)" }}>
         {error && <div className="p-4 text-sm rounded-lg" style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca" }}>{error}</div>}
 
         <div>
           <label className="block text-xs tracking-[0.15em] uppercase mb-2" style={{ color: "var(--color-stone)" }}>Email Address</label>
-          <input type="email" name="email" required className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-1" style={{ borderColor: "var(--color-border)", background: "white", color: "var(--color-charcoal)" }} placeholder="your@email.com" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-1" style={{ borderColor: "var(--color-border)", background: "white", color: "var(--color-charcoal)" }} placeholder="your@email.com" />
         </div>
 
         <div>
           <label className="block text-xs tracking-[0.15em] uppercase mb-2" style={{ color: "var(--color-stone)" }}>Admin Password</label>
-          <input type="password" name="password" required className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-1" style={{ borderColor: "var(--color-border)", background: "white", color: "var(--color-charcoal)" }} placeholder="Enter admin password" />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-1" style={{ borderColor: "var(--color-border)", background: "white", color: "var(--color-charcoal)" }} placeholder="Enter admin password" />
         </div>
 
         <button type="submit" disabled={loading} className="btn-primary w-full" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>

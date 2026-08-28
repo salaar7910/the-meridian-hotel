@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Admin login page is always accessible (no auth needed)
-  if (pathname === "/admin/login") {
+  if (pathname === "/admin/login" || pathname.startsWith("/admin/callback")) {
     return supabaseResponse;
   }
 

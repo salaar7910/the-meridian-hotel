@@ -17,38 +17,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  // Try to find existing guest
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  // 1. Find or create guest with admin role
   let { data: guest } = await supabase
     .from("guests")
     .select("id, email, first_name, last_name, role")
     .eq("email", email)
     .single();
 
-  // If no guest exists, create one as admin
   if (!guest) {
     const emailName = email.split("@")[0];
-    const { data: newGuest, error } = await supabase
+    const { data: newGuest } = await supabase
       .from("guests")
-      .insert({
-        email,
-        first_name: emailName,
-        last_name: "",
-        role: "admin",
-      })
+      .insert({ email, first_name: emailName, last_name: "", role: "admin" })
       .select("id, email, first_name, last_name, role")
       .single();
-
-    if (error) {
-      return NextResponse.json({ error: "Could not create admin account" }, { status: 500 });
-    }
     guest = newGuest;
   } else if (guest.role !== "admin") {
-    // Promote existing guest to admin
     const { data: updated } = await supabase
       .from("guests")
       .update({ role: "admin" })
@@ -58,22 +48,70 @@ export async function POST(request: NextRequest) {
     if (updated) guest = updated;
   }
 
-  // Also ensure a Supabase auth user exists for this email
-  // Try to create one (ignore if already exists)
-  const adminAuthToken = "Admin" + Math.random().toString(36).substring(2, 10);
-  try {
-    await supabase.auth.admin.createUser({
-      email,
-      password: adminAuthToken,
-      email_confirm: true,
-    });
-  } catch {
-    // User may already exist — that's fine
+  if (!guest) {
+    return NextResponse.json({ error: "Could not create admin account" }, { status: 500 });
   }
 
-  return NextResponse.json({
+  // 2. Create or update Supabase auth user
+  const authPassword = "admin-" + Date.now();
+  let authCreated = false;
+
+  try {
+    // Try to create user
+    const { error: createError } = await supabase.auth.admin.createUser({
+      email,
+      password: authPassword,
+      email_confirm: true,
+    });
+    if (createError) {
+      // User exists — update their password
+      const { data: users } = await supabase.auth.admin.listUsers();
+      const existingUser = users?.users?.find((u) => u.email === email);
+      if (existingUser) {
+        await supabase.auth.admin.updateUserById(existingUser.id, { password: authPassword });
+      }
+    }
+    authCreated = true;
+  } catch {
+    // Continue even if auth setup fails
+  }
+
+  // 3. Sign in server-side and get session cookies
+  const anonSupabase = createClient(supabaseUrl, anonKey);
+  const { data: sessionData, error: sessionError } = await anonSupabase.auth.signInWithPassword({
+    email,
+    password: authPassword,
+  });
+
+  if (sessionError || !sessionData.session) {
+    return NextResponse.json({ error: "Could not create login session: " + (sessionError?.message || "unknown") }, { status: 500 });
+  }
+
+  // 4. Set session cookies on the response
+  const response = NextResponse.json({
     message: "Admin access granted",
     guest,
-    authPassword: adminAuthToken,
+    redirect: "/admin",
   });
+
+  // Set the auth cookies
+  const accessToken = sessionData.session.access_token;
+  const refreshToken = sessionData.session.refresh_token;
+
+  response.cookies.set("sb-access-token", accessToken, {
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+  response.cookies.set("sb-refresh-token", refreshToken, {
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  return response;
 }

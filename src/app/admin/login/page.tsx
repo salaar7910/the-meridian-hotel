@@ -13,16 +13,13 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setSuccess("");
 
     try {
-      // Step 1: Verify admin password and create/promote account
       const res = await fetch("/api/admin/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -31,29 +28,10 @@ export default function AdminLoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setSuccess("Admin access granted! Signing you in...");
-
-      // Step 2: Sign in via Supabase Auth so middleware lets us through
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-
-      if (data.authPassword) {
-        // Sign in with the token the API created
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password: data.authPassword,
-        });
-        if (signInError) {
-          // Fallback: try signup + signin
-          await supabase.auth.signUp({ email, password: data.authPassword }).catch(() => {});
-          await supabase.auth.signInWithPassword({ email, password: data.authPassword }).catch(() => {});
-        }
-      }
-
-      setTimeout(() => router.push("/admin"), 1000);
+      // Session cookies are set by the API response — just redirect
+      window.location.href = data.redirect || "/admin";
     } catch (err: any) {
       setError(err.message || "Something went wrong");
-    } finally {
       setLoading(false);
     }
   };
@@ -68,7 +46,6 @@ export default function AdminLoginPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6" style={{ background: "white", padding: "2rem", borderRadius: "0.75rem", border: "1px solid var(--color-border)" }}>
         {error && <div className="p-4 text-sm rounded-lg" style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca" }}>{error}</div>}
-        {success && <div className="p-4 text-sm rounded-lg" style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}>{success}</div>}
 
         <div>
           <label className="block text-xs tracking-[0.15em] uppercase mb-2" style={{ color: "var(--color-stone)" }}>Email Address</label>
@@ -81,7 +58,7 @@ export default function AdminLoginPage() {
         </div>
 
         <button type="submit" disabled={loading} className="btn-primary w-full" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</> : <><Lock className="w-4 h-4" /> Enter Admin Panel</>}
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</> : <><Lock className="w-4 h-4" /> Enter Admin Panel</>}
         </button>
       </form>
 

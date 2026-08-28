@@ -12,7 +12,6 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If Supabase is not configured, skip auth checks entirely
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.next();
   }
@@ -40,16 +39,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Admin routes require authentication + admin role
+  // Admin login page is always accessible (no auth needed)
+  if (pathname === "/admin/login") {
+    return supabaseResponse;
+  }
+
+  // Other admin routes require authentication + admin role
   if (pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("redirect", pathname);
+      url.pathname = "/admin/login";
       return NextResponse.redirect(url);
     }
 
-    // Check if user has admin role in guests table
     const { data: guest } = await supabase
       .from("guests")
       .select("role")
@@ -57,9 +59,8 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (!guest || guest.role !== "admin") {
-      // Not an admin — redirect to home with error
       const url = request.nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = "/admin/login";
       url.searchParams.set("error", "admin_only");
       return NextResponse.redirect(url);
     }

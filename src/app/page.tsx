@@ -50,7 +50,7 @@ export default function Home() {
               elegance, where every detail is considered and every moment is yours.
             </p>
             {/* Search Bar */}
-            <div className="bg-card/95 backdrop-blur-md rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
+            <div className="bg-card/95 backdrop-blur-md rounded-lg shadow-lg p-6 mx-auto">
               <form className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div className="form-group">
                   <label className="form-label">Check In</label>
@@ -69,7 +69,7 @@ export default function Home() {
                     <option value="4">4 Guests</option>
                   </select>
                 </div>
-                <Link href="/rooms" className="btn btn-primary h-[42px] mt-auto">Check Availability</Link>
+                <Link href="/rooms" className="btn btn-primary h-[42px] mt-auto whitespace-nowrap px-6">Check Availability</Link>
               </form>
             </div>
           </div>
